@@ -1,143 +1,88 @@
 package com.example.stepdefinitions;
 
-import com.example.pages.CoffeeshopPage;
-import com.example.utils.DriverManager;
-import com.example.utils.TestDataLoader;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.When;
 import io.cucumber.java.en.Then;
-import org.junit.jupiter.api.Assertions;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.By;
+import org.openqa.selenium.support.ui.WebDriverWait;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import static org.junit.jupiter.api.Assertions.*;
+import java.time.Duration;
+import com.example.utils.DriverManager;
+import com.example.utils.TestDataLoader;
 
 /**
- * Step Definitions für Coffeeshop Tests
+ * Step Definitions for Coffeeshop Tests
  */
 public class CoffeeshopStepDefinitions {
     
-    private CoffeeshopPage coffeeshopPage;
-    private String initialUrl;
+    private WebDriver driver;
+    private WebDriverWait wait;
     
-    @Given("the user is on the coffeeshop homepage")
-    
-    public void theUserIsOnTheCoffeeshopHomepage() {
-        String coffeeshopUrl = TestDataLoader.getUrl("coffeeshop");
-        
-        // Navigiere zur URL
-        DriverManager.getDriver().get(coffeeshopUrl);
-        
-        // Erstelle Page Object nach Navigation
-        coffeeshopPage = new CoffeeshopPage(DriverManager.getDriver());
-        
-        initialUrl = DriverManager.getDriver().getCurrentUrl();
-        
-        System.out.println("Coffeeshop Homepage geöffnet: " + coffeeshopUrl);
-        System.out.println("Aktuelle URL: " + initialUrl);
-        
-        // Überprüfe dass die Seite geladen wurde
-        String pageTitle = coffeeshopPage.getPageTitle();
-        Assertions.assertFalse(pageTitle.isEmpty(),
-            "Coffeeshop Homepage sollte geladen sein!");
+    public CoffeeshopStepDefinitions() {
+        this.driver = DriverManager.getDriver();
+        this.wait = new WebDriverWait(driver, Duration.ofSeconds(10));
     }
     
-    @When("the user clicks the {string} button")
-    public void theUserClicksTheButton(String buttonText) {
-        System.out.println("Versuche Button zu klicken: " + buttonText);
+    @Given("the user is on the coffeeshop homepage")
+    public void theUserIsOnTheCoffeeshopHomepage() {
+        // Load the URL from urls.properties
+        String coffeeshopUrl = TestDataLoader.getUrl("coffeeshop");
+        driver.get(coffeeshopUrl);
         
-        // Überprüfe zunächst ob der Button sichtbar ist
-        boolean isButtonVisible = coffeeshopPage.isEnterShopButtonVisible();
-        System.out.println("Enter Shop Button sichtbar: " + isButtonVisible);
+        // Wait until the page is loaded - check for the actual title
+        wait.until(ExpectedConditions.titleContains("coffeeshop"));
         
-        if (isButtonVisible) {
-            coffeeshopPage.clickEnterShopButton();
-            System.out.println("Button '" + buttonText + "' wurde geklickt");
-        } else {
-            System.out.println("Button nicht gefunden - verwende alternative Methode");
-            // Alternative: Warte kurz und versuche erneut
-            try {
-                Thread.sleep(2000);
-                coffeeshopPage.clickEnterShopButton();
-            } catch (Exception e) {
-                System.out.println("Button-Klick fehlgeschlagen: " + e.getMessage());
-                // Für Demo-Zwecke: Simuliere Navigation zur Shop-Seite
-                String currentUrl = DriverManager.getDriver().getCurrentUrl();
-                if (!currentUrl.contains("shop")) {
-                    DriverManager.getDriver().navigate().to(currentUrl + "#shop");
-                }
-            }
+        System.out.println("Navigated to Coffeeshop Homepage: " + coffeeshopUrl);
+        System.out.println("Current page title: " + driver.getTitle());
+
+        String expectedUrl = TestDataLoader.getUrl("coffeeshop");
+        String actualUrl = driver.getCurrentUrl();
+
+        assertEquals(expectedUrl, actualUrl, "The current URL (" + actualUrl + ") does not match the expected URL (" + expectedUrl + ").");
+    }
+    
+    @When("the user clicks the button Shop to enter the shop")
+    public void theUserClicksTheShopButton() {
+        try {
+            // Load the XPath locator from properties
+            String buttonXpath = TestDataLoader.getCoffeeshopData("button_enter_shop_xpath_locator");
+            
+            // Wait for the element and click it
+            WebElement enterShopButton = wait.until(
+                ExpectedConditions.elementToBeClickable(By.xpath(buttonXpath))
+            );
+
+            // Click the button
+            enterShopButton.click();
+            System.out.println("Shop button pressed successfully.");
+
+            
+        } catch (Exception e) {
+            System.err.println("Error clicking the button: " + e.getMessage());
+            throw new RuntimeException("Button 'Shop' could not be clicked", e);
         }
     }
     
     @Then("the user should be taken to the shop page")
     public void theUserShouldBeTakenToTheShopPage() {
-        // Warte kurz auf Navigation
         try {
-            Thread.sleep(3000);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-        
-        String currentUrl = DriverManager.getDriver().getCurrentUrl();
-        String pageTitle = DriverManager.getDriver().getTitle();
-        
-        System.out.println("Nach Klick - URL: " + currentUrl);
-        System.out.println("Nach Klick - Titel: " + pageTitle);
-        
-        // Überprüfe ob Navigation stattgefunden hat
-        boolean isOnShopPage = coffeeshopPage.isOnShopPage();
-        
-        System.out.println("Ist auf Shop-Seite: " + isOnShopPage);
-        
-        if (!isOnShopPage) {
-            // Alternative Überprüfungen
-            boolean urlChanged = !currentUrl.equals(initialUrl);
-            boolean titleIndicatesShop = pageTitle.toLowerCase().contains("shop") || 
-                                       pageTitle.toLowerCase().contains("cart") ||
-                                       pageTitle.toLowerCase().contains("coffee");
+
+            // Wait until the URL contains the expected shop URL
+            String actualUrl = driver.getCurrentUrl();
+            wait.until(ExpectedConditions.urlToBe(actualUrl));
+
+            String expectedUrl = TestDataLoader.getUrl("coffeeshop_shop");
+
+            System.out.println("Actual page: " + actualUrl + " Matches the expected page " + expectedUrl);
+
+            assertEquals(expectedUrl, actualUrl, "The current URL (" + actualUrl + ") does not match the expected URL (" + expectedUrl + ").");
             
-            System.out.println("URL geändert: " + urlChanged);
-            System.out.println("Titel deutet auf Shop hin: " + titleIndicatesShop);
-            
-            // Akzeptiere wenn mindestens eine Bedingung erfüllt ist
-            isOnShopPage = urlChanged || titleIndicatesShop || 
-                          coffeeshopPage.isShopElementsVisible();
+        } catch (Exception e) {
+            System.err.println("Error verifying the shop page: " + e.getMessage());
+            throw new RuntimeException("Navigation to shop page failed", e);
         }
-        
-        Assertions.assertTrue(isOnShopPage,
-            "Benutzer sollte zur Shop-Seite navigiert werden! " +
-            "Aktuelle URL: " + currentUrl + ", Titel: " + pageTitle);
-        
-        System.out.println("Navigation zur Shop-Seite erfolgreich bestätigt");
-    }
-    
-    // Zusätzliche Step Definitions für erweiterte Tests
-    @Then("the shop page should display products")
-    public void theShopPageShouldDisplayProducts() {
-        boolean productsVisible = coffeeshopPage.areProductsVisible();
-        Assertions.assertTrue(productsVisible,
-            "Produkte sollten auf der Shop-Seite angezeigt werden!");
-        
-        int productCount = coffeeshopPage.getProductCount();
-        System.out.println("Anzahl der sichtbaren Produkte: " + productCount);
-        
-        Assertions.assertTrue(productCount > 0,
-            "Es sollten Produkte angezeigt werden!");
-    }
-    
-    @Then("the shopping cart should be visible")
-    public void theShoppingCartShouldBeVisible() {
-        boolean cartVisible = coffeeshopPage.isCartVisible();
-        Assertions.assertTrue(cartVisible,
-            "Der Warenkorb sollte sichtbar sein!");
-        System.out.println("Warenkorb ist sichtbar");
-    }
-    
-    @Then("the shop title should be {string}")
-    public void theShopTitleShouldBe(String expectedTitle) {
-        String actualTitle = coffeeshopPage.getShopTitle();
-        System.out.println("Erwarteter Titel: " + expectedTitle);
-        System.out.println("Aktueller Titel: " + actualTitle);
-        
-        Assertions.assertTrue(actualTitle.contains(expectedTitle) || 
-                            expectedTitle.contains(actualTitle),
-            "Shop-Titel sollte '" + expectedTitle + "' enthalten! Aktuell: '" + actualTitle + "'");
     }
 }
